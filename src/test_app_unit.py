@@ -1,14 +1,20 @@
 #! /usr/bin/env python
 
 import unittest
-from app import app, init_db
+import os
+from app import app, init_db, DATABASE
 
 class TestAppUnit(unittest.TestCase):
     def setUp(self):
         # Set up the test client
         self.app = app.test_client()
         self.app.testing = True
-        init_db()
+        with app.app_context():
+            init_db()
+
+    def tearDown(self):
+        if os.path.exists(DATABASE):
+            os.remove(DATABASE)
 
     def test_main_route(self):
         # Test the main route

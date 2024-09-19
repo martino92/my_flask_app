@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, g
 import requests
 import sqlite3
 from rq import Queue
 from redis import Redis
 import os
-import atexit
 
 app = Flask(__name__)
 
@@ -19,21 +18,34 @@ except:
     redis_conn = None
     q = None
 
+# Database configuration
+DATABASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'posts.db')
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+    return db
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
 def init_db():
-    conn = sqlite3.connect('posts.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS posts
-                 (id INTEGER PRIMARY KEY, title TEXT, body TEXT, 
-                  title_length INTEGER, body_length INTEGER)''')
-    conn.commit()
-    conn.close()
+    with app.app_context():
+        db = get_db()
+        with app.open_resource('schema.sql', mode='r') as f:
+            db.cursor().executescript(f.read())
+        db.commit()
 
 def fetch_and_store_posts():
     response = requests.get('https://jsonplaceholder.typicode.com/posts')
     posts = response.json()
     
-    conn = sqlite3.connect('posts.db')
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
     
     for post in posts:
         title_length = len(post['title'])
@@ -43,8 +55,7 @@ def fetch_and_store_posts():
                      VALUES (?, ?, ?, ?, ?)''',
                   (post['id'], post['title'], post['body'], title_length, body_length))
     
-    conn.commit()
-    conn.close()
+    db.commit()
 
 @app.route('/')
 def index():
@@ -62,8 +73,8 @@ def fetch_posts():
 
 @app.route('/api/stats')
 def get_stats():
-    conn = sqlite3.connect('posts.db')
-    c = conn.cursor()
+    db = get_db()
+    c = db.cursor()
     
     c.execute('SELECT COUNT(*) FROM posts')
     total_posts = c.fetchone()[0]
@@ -74,8 +85,6 @@ def get_stats():
     c.execute('SELECT AVG(body_length) FROM posts')
     avg_body_length = c.fetchone()[0]
     
-    conn.close()
-    
     return jsonify({
         'total_posts': total_posts,
         'avg_title_length': round(avg_title_length, 2) if avg_title_length else 0,
@@ -83,6 +92,6 @@ def get_stats():
     })
 
 if __name__ == '__main__':
-    init_db()
-    atexit.register(lambda: os.remove('posts.db') if os.path.exists('posts.db') else None)
+    if not os.path.exists(DATABASE):
+        init_db()
     app.run(debug=True)
