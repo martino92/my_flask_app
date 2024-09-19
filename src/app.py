@@ -6,6 +6,7 @@ import sqlite3
 from rq import Queue
 from redis import Redis
 import os
+import atexit
 
 app = Flask(__name__)
 
@@ -74,4 +75,5 @@ def get_stats():
 
 if __name__ == '__main__':
     init_db()
+    atexit.register(lambda: os.remove('posts.db') if os.path.exists('posts.db') else None)
     app.run(debug=True)

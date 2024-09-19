@@ -13,13 +13,22 @@ class TestAppUnit(unittest.TestCase):
         # Test the main route
         response = self.app.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'<form action="/echo_user_input" method="POST">', response.data)
+        self.assertIn(b'<h1>Post Statistics</h1>', response.data)
+        self.assertIn(b'<button onclick="fetchPosts()">Fetch Posts</button>', response.data)
 
-    def test_echo_input_route(self):
-        # Test the echo_input route with a sample input
-        response = self.app.post('/echo_user_input', data=dict(user_input='Hello, World!'))
+    def test_fetch_posts_route(self):
+        # Test the fetch_posts route
+        response = self.app.post('/fetch_posts')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'You entered Hello, World!', response.data)
+        self.assertIn(b'Posts are being fetched', response.data)
+
+    def test_api_stats_route(self):
+        # Test the api_stats route
+        response = self.app.get('/api/stats')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'total_posts', response.data)
+        self.assertIn(b'avg_title_length', response.data)
+        self.assertIn(b'avg_body_length', response.data)
 
 if __name__ == '__main__':
     unittest.main()
