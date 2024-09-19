@@ -18,8 +18,10 @@ class TestAppIntegration(unittest.TestCase):
 
         # Step 2: Fetch posts
         response = self.app.post('/fetch_posts')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Posts are being fetched', response.data)
+        self.assertIn(response.status_code, [200, 202])
+        data = response.get_json()
+        self.assertIn('message', data)
+        self.assertIn('Posts', data['message'])
 
         # Step 3: Check statistics
         response = self.app.get('/api/stats')

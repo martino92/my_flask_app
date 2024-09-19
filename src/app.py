@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 import requests
 import sqlite3
 from rq import Queue
@@ -12,8 +12,12 @@ app = Flask(__name__)
 
 # Configure Redis
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-redis_conn = Redis.from_url(redis_url)
-q = Queue(connection=redis_conn)
+try:
+    redis_conn = Redis.from_url(redis_url)
+    q = Queue(connection=redis_conn)
+except:
+    redis_conn = None
+    q = None
 
 def init_db():
     conn = sqlite3.connect('posts.db')
@@ -48,8 +52,13 @@ def index():
 
 @app.route('/fetch_posts', methods=['POST'])
 def fetch_posts():
-    job = q.enqueue(fetch_and_store_posts)
-    return 'Posts are being fetched and stored in the background.'
+    if q is None:
+        # If Redis is not available, run the task synchronously
+        fetch_and_store_posts()
+        return jsonify({'message': 'Posts have been fetched and stored.'}), 200
+    else:
+        job = q.enqueue(fetch_and_store_posts)
+        return jsonify({'message': 'Posts are being fetched and stored in the background.'}), 202
 
 @app.route('/api/stats')
 def get_stats():
@@ -67,11 +76,11 @@ def get_stats():
     
     conn.close()
     
-    return {
+    return jsonify({
         'total_posts': total_posts,
         'avg_title_length': round(avg_title_length, 2) if avg_title_length else 0,
         'avg_body_length': round(avg_body_length, 2) if avg_body_length else 0
-    }
+    })
 
 if __name__ == '__main__':
     init_db()
