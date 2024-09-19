@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Statistics</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Post Statistics</h1>
+    <button onclick="fetchPosts()">Fetch Posts</button>
+    <div id="stats"></div>
+
+    <script>
+        function fetchPosts() {
+            axios.post('/fetch_posts')
+                .then(response => {
+                    alert(response.data);
+                    updateStats();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateStats() {
+            axios.get('/api/stats')
+                .then(response => {
+                    const stats = response.data;
+                    document.getElementById('stats').innerHTML = `
+                        <p>Total Posts: ${stats.total_posts}</p>
+                        <p>Average Title Length: ${stats.avg_title_length}</p>
+                        <p>Average Body Length: ${stats.avg_body_length}</p>
+                    `;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        updateStats();
+    </script>
+</body>
+</html>
